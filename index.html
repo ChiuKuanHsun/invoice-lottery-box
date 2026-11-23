@@ -1,0 +1,1139 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>對獎倉 3D 模型</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#e6e9ed;
+  --panel:#f8f9fb;
+  --ink:#1a1f26;
+  --muted:#5b6571;
+  --line:#d3d8de;
+  --accent:#d62839;
+  --ok:#1d8a5a;
+  --wait:#a86f0c;
+  --display:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+  --body:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:light;
+  /* layout: 3D stage fills the left, a 372px control rail on the right; stacks to one column on narrow screens */
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:14px;line-height:1.55}
+.app{display:grid;grid-template-columns:minmax(0,1fr) 372px;height:100%}
+#stage{position:relative;overflow:hidden;min-height:0;background:var(--bg)}
+#stage>canvas{display:block}
+.labels{position:absolute;inset:0}
+.lbl{font:500 12px/1.3 var(--body);color:var(--ink);background:rgba(255,255,255,.93);border:1px solid var(--line);border-radius:4px;padding:2px 7px;white-space:nowrap;pointer-events:none;box-shadow:0 1px 3px rgba(20,30,40,.12)}
+.lbl .lv{font:700 10px var(--mono);color:#fff;background:var(--ink);border-radius:3px;padding:0 4px;margin-right:5px}
+.wintag{font:700 12px/1.3 var(--body);color:#fff;background:var(--accent);border-radius:4px;padding:3px 8px;white-space:nowrap;pointer-events:none;box-shadow:0 2px 8px rgba(214,40,57,.4)}
+
+.hud{position:absolute;top:16px;left:16px;display:flex;flex-direction:column;gap:10px;pointer-events:none}
+.screen{background:#0d1116;border-radius:8px;padding:6px 6px 4px;box-shadow:0 4px 14px rgba(10,20,30,.22)}
+.screen span{display:block;font:500 11px var(--body);color:#8f9aa6;padding:0 2px 4px}
+.screen canvas{display:block;width:256px;height:128px;border-radius:3px}
+#lapWrap canvas{height:160px}
+.phone{position:absolute;left:16px;bottom:16px;width:290px;background:#fff;border-radius:14px;box-shadow:0 10px 30px rgba(10,20,30,.25);padding:12px 14px;border-top:4px solid #06c755}
+.phone[hidden]{display:none}
+.phone .app-name{font:700 12px var(--body);color:#06a04a;display:flex;justify-content:space-between}
+.phone .app-name em{font-style:normal;color:var(--muted);font-weight:500}
+.phone p{margin:6px 0 0;font-size:13px}
+.hint{position:absolute;right:14px;bottom:12px;font-size:12px;color:var(--muted);background:rgba(255,255,255,.7);padding:3px 8px;border-radius:4px;pointer-events:none}
+
+aside{background:var(--panel);border-left:1px solid var(--line);overflow-y:auto;padding:22px 20px 36px;display:flex;flex-direction:column;gap:20px}
+header h1{font:900 30px/1.1 var(--display);margin:0;letter-spacing:.04em;display:flex;align-items:center;gap:10px;text-wrap:balance}
+header h1 i{display:inline-block;width:12px;height:30px;background:var(--accent);border-radius:2px}
+header p{margin:6px 0 0;color:var(--muted)}
+section{display:flex;flex-direction:column;gap:9px}
+h2{font:700 12px var(--body);color:var(--muted);letter-spacing:.12em;margin:0;display:flex;justify-content:space-between;align-items:baseline}
+h2 small{font-weight:500;letter-spacing:0}
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;background:#e9ecf0;border-radius:8px;padding:3px;gap:3px}
+.seg button{border:0;background:transparent;border-radius:6px;padding:7px 6px;font:500 13px var(--body);color:var(--muted);cursor:pointer}
+.seg button[aria-pressed="true"]{background:#fff;color:var(--ink);font-weight:700;box-shadow:0 1px 3px rgba(20,30,40,.15)}
+.seg button b{font-family:var(--mono);margin-right:4px}
+.note{font-size:12.5px;color:var(--muted);margin:0}
+.note.warn{color:var(--wait)}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.btn{border:1px solid var(--line);background:#fff;border-radius:8px;padding:10px 10px;font:700 13px var(--body);color:var(--ink);cursor:pointer;text-align:left;display:flex;flex-direction:column;gap:2px}
+.btn small{font-weight:400;color:var(--muted);font-size:11.5px}
+.btn.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+.btn.primary small{color:#b9c2cc}
+.btn.red{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn.red small{color:#ffd9dd}
+.btn.wide{grid-column:1/-1}
+.btn:disabled{opacity:.42;cursor:not-allowed}
+.btn:not(:disabled):hover{filter:brightness(.96)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.toggle{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+ol.steps{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:2px;counter-reset:s}
+ol.steps li{counter-increment:s;display:grid;grid-template-columns:22px 1fr;gap:8px;padding:5px 8px;border-radius:6px;color:var(--muted);font-size:13px}
+ol.steps li::before{content:counter(s);font:700 11px/20px var(--mono);text-align:center;width:20px;height:20px;border-radius:50%;background:#e9ecf0;color:var(--muted)}
+ol.steps li.done{color:var(--ink)}
+ol.steps li.done::before{background:var(--ink);color:#fff}
+ol.steps li.now{background:#fff;color:var(--ink);font-weight:700;box-shadow:inset 3px 0 0 var(--accent)}
+ol.steps li.now::before{background:var(--accent);color:#fff}
+.bins{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.bin{background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.bin b{display:block;font-size:13px}
+.bin .n{font:700 26px/1.1 var(--mono);font-variant-numeric:tabular-nums}
+.bin .n small{font:500 12px var(--body);color:var(--muted);margin-left:4px}
+.pills{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.pill{font-size:11.5px;border-radius:999px;padding:1px 8px;background:#eef0f3;color:var(--muted)}
+.pill.wait{background:#fbf0da;color:var(--wait)}
+.pill.win{background:#fde3e6;color:var(--accent);font-weight:700}
+.pill.grey{background:#eceef1}
+.card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.swatches{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.sw{display:flex;flex-direction:column;gap:4px;font-size:11.5px;color:var(--muted)}
+.sw i{display:block;height:30px;border-radius:6px;border:1px solid rgba(0,0,0,.08)}
+.sw b{color:var(--ink);font-size:12px}
+dl.spec{margin:0;display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:13px}
+dl.spec dt{color:var(--muted)}
+dl.spec dd{margin:0}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+ul.bom{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;font-size:13px}
+ul.bom li{display:grid;grid-template-columns:28px 1fr;gap:8px;align-items:baseline}
+ul.bom li span{font:700 10px var(--mono);border-radius:3px;padding:1px 0;text-align:center;background:#e9ecf0;color:var(--muted)}
+ul.bom li.l2 span{background:var(--ink);color:#fff}
+ul.bom li small{color:var(--muted);display:block;font-size:12px}
+.foot{display:flex;justify-content:flex-end}
+.link{background:none;border:0;color:var(--muted);font:500 12.5px var(--body);text-decoration:underline;cursor:pointer;padding:4px}
+@media (max-width:860px){
+  html,body{height:auto}
+  .app{grid-template-columns:1fr;height:auto}
+  #stage{height:62svh;min-height:380px}
+  aside{border-left:0;border-top:1px solid var(--line)}
+  .screen canvas{width:168px;height:84px}
+  #lapWrap canvas{height:105px}
+  .phone{width:min(290px,calc(100% - 32px))}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+<script type="importmap">
+{"imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+</head>
+<body>
+<div class="app">
+  <div id="stage">
+    <div class="hud">
+      <div class="screen"><span>OLED 畫面（機身上同步顯示）</span><canvas id="oledCanvas" width="512" height="256"></canvas></div>
+      <div class="screen" id="lapWrap" hidden><span>筆電 OCR 程式</span><canvas id="lapCanvas" width="640" height="400"></canvas></div>
+    </div>
+    <div class="phone" id="phone" hidden>
+      <div class="app-name">LINE 推播 · 對獎倉 Bot <em>11/25 20:05</em></div>
+      <p id="phoneMsg"></p>
+    </div>
+    <div class="hint">拖曳旋轉・右鍵平移・滾輪縮放</div>
+  </div>
+
+  <aside>
+    <header>
+      <h1><i></i>對獎倉</h1>
+      <p>全自動統一發票收集兌獎機。每天回家把發票一張張投進去，開獎時告訴你中獎的是盒子裡由上數第幾張。</p>
+    </header>
+
+    <section>
+      <h2>硬體等級</h2>
+      <div class="seg" role="group" aria-label="硬體等級">
+        <button id="lvL1" aria-pressed="true"><b>L1</b>ESP32</button>
+        <button id="lvL2" aria-pressed="false"><b>L2</b>ESP32＋筆電</button>
+      </div>
+      <p class="note" id="lvNote"></p>
+    </section>
+
+    <section>
+      <h2>檢視</h2>
+      <div class="seg" role="group" aria-label="檢視方式">
+        <button id="vOutside" aria-pressed="false">外觀</button>
+        <button id="vCut" aria-pressed="true">剖面</button>
+        <button id="vXray" aria-pressed="false">透視</button>
+      </div>
+      <label class="toggle"><input type="checkbox" id="showLabels" checked> 顯示零件標籤</label>
+    </section>
+
+    <section>
+      <h2>投入一張發票 <small id="periodHint"></small></h2>
+      <div class="seg" role="group" aria-label="這張發票的期別">
+        <button id="mPending" aria-pressed="true">未開獎</button>
+        <button id="mLose" aria-pressed="false">已開獎・沒中</button>
+        <button id="mWin" aria-pressed="false">已開獎・中獎</button>
+      </div>
+      <div class="actions">
+        <button class="btn primary" id="insE">投入電子發票<small>有條碼，掃描模組讀取</small></button>
+        <button class="btn primary" id="insT">投入傳統發票<small>沒有條碼</small></button>
+        <button class="btn wide" id="insC">投入皺掉的電子發票<small id="insCsub">條碼和 OCR 都讀不到，退件（L2 才能判斷）</small></button>
+      </div>
+    </section>
+
+    <section>
+      <h2>流程 <small id="flowName">尚未投入</small></h2>
+      <ol class="steps" id="steps"></ol>
+    </section>
+
+    <section>
+      <h2>收集盒</h2>
+      <div class="bins">
+        <div class="bin"><b>電子發票盒（左）</b><div class="n" id="nE">0<small>張</small></div><div class="pills" id="pE"></div></div>
+        <div class="bin"><b>傳統發票盒（右）</b><div class="n" id="nT">0<small>張</small></div><div class="pills" id="pT"></div></div>
+      </div>
+      <div class="actions">
+        <button class="btn" id="drawBtn">模擬 11/25 開獎<small>115年09-10月</small></button>
+        <button class="btn red" id="takeBtn" disabled>按「已取出」<small id="takeSub">沒有待取出的中獎發票</small></button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>外觀設計</h2>
+      <div class="swatches">
+        <div class="sw"><i style="background:#eef0f2"></i><b>霧白</b>機身 PLA</div>
+        <div class="sw"><i style="background:#2a2f37"></i><b>炭灰</b>頂蓋・底座</div>
+        <div class="sw"><i style="background:#d62839"></i><b>開獎紅</b>投入口・按鈕</div>
+        <div class="sw"><i style="background:#bfe0ec"></i><b>透明壓克力</b>抽屜前板</div>
+      </div>
+      <dl class="spec">
+        <dt>尺寸</dt><dd class="mono">20.4 × 19.6 × 21.7 cm（寬×深×高）</dd>
+        <dt>投入口</dt><dd>寬 8.4 cm 紅框，內部導板寬 6.1 cm，剛好容納 5.7 cm 寬的電子發票證明聯</dd>
+        <dt>操作區</dt><dd>OLED 與「已取出」按鈕放在投入口正上方，投完就看得到結果</dd>
+        <dt>收集盒</dt><dd>左右兩個抽屜，前板透明，對照「由上數第幾張」時看得到整疊發票</dd>
+        <dt>配色邏輯</dt><dd>只有要動手的地方用紅色：投入口、腰線、按鈕</dd>
+      </dl>
+    </section>
+
+    <section>
+      <h2>零件清單 <small id="bomCount"></small></h2>
+      <ul class="bom" id="bom"></ul>
+    </section>
+
+    <div class="foot"><button class="link" id="resetBtn">重設示範資料</button></div>
+  </aside>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+
+const $ = s => document.querySelector(s);
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const SPEED = reduceMotion ? 0.35 : 1;
+
+try {
+  await Promise.race([
+    Promise.all([
+      document.fonts.load('900 30px "Noto Sans TC"'),
+      document.fonts.load('700 30px "Noto Sans TC"'),
+      document.fonts.load('500 20px "Noto Sans TC"'),
+      document.fonts.load('700 30px "JetBrains Mono"'),
+      document.fonts.load('500 20px "JetBrains Mono"')
+    ]),
+    new Promise(r => setTimeout(r, 2500))
+  ]);
+} catch (e) {}
+
+/* ---------- 期別資料 ---------- */
+const PERIODS = {
+  '07-08': { label: '115年07-08月', drawn: true,  drawDate: '9/25' },
+  '09-10': { label: '115年09-10月', drawn: false, drawDate: '11/25' },
+  '11-12': { label: '115年11-12月', drawn: false, drawDate: '1/25' }
+};
+
+/* ---------- 場景 ---------- */
+const stage = $('#stage');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+stage.prepend(renderer.domElement);
+
+const labelRenderer = new CSS2DRenderer();
+labelRenderer.domElement.className = 'labels';
+stage.insertBefore(labelRenderer.domElement, stage.querySelector('.hud'));
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#e6e9ed');
+
+const camera = new THREE.PerspectiveCamera(34, 1, 0.5, 500);
+camera.position.set(40, 31, 50);
+const controls = new OrbitControls(camera, labelRenderer.domElement);
+controls.target.set(3, 9.5, 0);
+controls.enableDamping = true;
+controls.minDistance = 18;
+controls.maxDistance = 150;
+controls.maxPolarAngle = Math.PI * 0.495;
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0xa9b2bc, 1.15));
+const sun = new THREE.DirectionalLight(0xffffff, 2.1);
+sun.position.set(26, 46, 32);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -45, right: 45, top: 45, bottom: -45, near: 1, far: 160 });
+sun.shadow.bias = -0.0006;
+sun.shadow.normalBias = 0.02;
+scene.add(sun);
+const rim = new THREE.DirectionalLight(0xdfe8ff, 0.7);
+rim.position.set(-30, 22, -26);
+scene.add(rim);
+
+const ground = new THREE.Mesh(new THREE.CircleGeometry(120, 72), new THREE.MeshStandardMaterial({ color: '#dde1e6', roughness: 1 }));
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+scene.add(ground);
+const grid = new THREE.GridHelper(120, 60, 0xc6ccd3, 0xd3d8de);
+grid.position.y = 0.01;
+grid.material.transparent = true;
+grid.material.opacity = 0.55;
+scene.add(grid);
+
+/* ---------- 材質與工具 ---------- */
+const M = {
+  body:   () => new THREE.MeshStandardMaterial({ color: '#eef0f2', roughness: 0.62 }),
+  char:   () => new THREE.MeshStandardMaterial({ color: '#2a2f37', roughness: 0.5 }),
+  red:    new THREE.MeshStandardMaterial({ color: '#d62839', roughness: 0.38 }),
+  acrylic:new THREE.MeshStandardMaterial({ color: '#bfe0ec', roughness: 0.05, transparent: true, opacity: 0.2, depthWrite: false, side: THREE.DoubleSide }),
+  inner:  new THREE.MeshStandardMaterial({ color: '#c9ced5', roughness: 0.7 }),
+  rail:   new THREE.MeshStandardMaterial({ color: '#9aa3ad', roughness: 0.4, metalness: 0.5 }),
+  rubber: new THREE.MeshStandardMaterial({ color: '#1b1d20', roughness: 0.95 }),
+  metal:  new THREE.MeshStandardMaterial({ color: '#b4bbc3', roughness: 0.3, metalness: 0.85 }),
+  pcb:    new THREE.MeshStandardMaterial({ color: '#16233a', roughness: 0.6 }),
+  pcbG:   new THREE.MeshStandardMaterial({ color: '#1f5e3a', roughness: 0.6 }),
+  blue:   new THREE.MeshStandardMaterial({ color: '#2d62b8', roughness: 0.5 }),
+  white:  new THREE.MeshStandardMaterial({ color: '#f4f5f6', roughness: 0.5 }),
+  charS:  new THREE.MeshStandardMaterial({ color: '#2a2f37', roughness: 0.5 }),
+  lap:    new THREE.MeshStandardMaterial({ color: '#c3c9d0', roughness: 0.35, metalness: 0.6 })
+};
+
+function box(w, h, d, mat, x, y, z, parent = scene, r = 0) {
+  const g = r > 0 ? new RoundedBoxGeometry(w, h, d, 3, r) : new THREE.BoxGeometry(w, h, d);
+  const m = new THREE.Mesh(g, mat);
+  m.position.set(x, y, z);
+  m.castShadow = true; m.receiveShadow = true;
+  parent.add(m);
+  return m;
+}
+function cyl(r, len, mat, x, y, z, axis, parent = scene, seg = 32) {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, seg), mat);
+  if (axis === 'x') m.rotation.z = Math.PI / 2;
+  if (axis === 'z') m.rotation.x = Math.PI / 2;
+  m.position.set(x, y, z);
+  m.castShadow = true; m.receiveShadow = true;
+  parent.add(m);
+  return m;
+}
+function canvasTex(c) {
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  return t;
+}
+function printPlane(w, h, draw, ppu = 90) {
+  const c = document.createElement('canvas');
+  c.width = Math.round(w * ppu); c.height = Math.round(h * ppu);
+  const g = c.getContext('2d');
+  draw(g, c.width, c.height);
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: canvasTex(c), transparent: true, roughness: 0.7 }));
+  return m;
+}
+function wire(pts, color, parent = scene) {
+  const curve = new THREE.CatmullRomCurve3(pts.map(p => new THREE.Vector3(...p)));
+  const m = new THREE.Mesh(new THREE.TubeGeometry(curve, 48, 0.09, 6), new THREE.MeshStandardMaterial({ color, roughness: 0.6 }));
+  m.castShadow = true;
+  parent.add(m);
+  return m;
+}
+const lerp = (a, b, k) => a + (b - a) * k;
+
+/* ---------- 外殼 ---------- */
+const shell = [];
+function shellPart(mesh, cut) { mesh.userData.cut = cut; shell.push(mesh); return mesh; }
+const ZC = -0.3; // 機身深度中心
+shellPart(box(20.4, 0.8, 19.6, M.char(), 0, 0.4, ZC, scene, 0.25), false);           // 底座
+shellPart(box(0.4, 20.2, 19.2, M.body(), -9.8, 10.9, ZC, scene, 0.15), false);        // 左側板
+const rightWall = shellPart(box(0.4, 20.2, 19.2, M.body(), 9.8, 10.9, ZC, scene, 0.15), true);
+shellPart(box(19.2, 20.2, 0.4, M.body(), 0, 10.9, -9.7, scene, 0.12), false);         // 背板
+shellPart(box(20.4, 0.7, 19.6, M.char(), 0, 21.35, ZC, scene, 0.3), true);            // 頂蓋
+// 右側散熱孔
+for (let i = 0; i < 6; i++) shellPart(box(0.08, 0.35, 6, M.char(), 10.02, 17.2 + i * 0.75, -3.5), true);
+// 背面散熱孔
+for (let i = 0; i < 5; i++) shellPart(box(7, 0.35, 0.08, M.char(), -3, 16 + i * 0.8, -9.92), false);
+
+// 前上面板（中間留投入口）
+const SLOT_Y = 14.85, SLOT_H = 0.8, SLOT_W = 8.4;
+const slotTop = SLOT_Y + SLOT_H / 2, slotBot = SLOT_Y - SLOT_H / 2;
+shellPart(box(19.2, 21 - slotTop, 0.4, M.body(), 0, (21 + slotTop) / 2, 8.8), false);
+shellPart(box(19.2, slotBot - 11.4, 0.4, M.body(), 0, (slotBot + 11.4) / 2, 8.8), false);
+const sideW = (19.2 - SLOT_W) / 2;
+shellPart(box(sideW, SLOT_H, 0.4, M.body(), -(SLOT_W / 2 + sideW / 2), SLOT_Y, 8.8), false);
+shellPart(box(sideW, SLOT_H, 0.4, M.body(),  (SLOT_W / 2 + sideW / 2), SLOT_Y, 8.8), false);
+// 投入口紅框
+box(SLOT_W + 0.7, 0.35, 0.5, M.red, 0, slotTop + 0.175, 9.05);
+box(SLOT_W + 0.7, 0.35, 0.5, M.red, 0, slotBot - 0.175, 9.05);
+box(0.35, SLOT_H, 0.5, M.red, -(SLOT_W / 2 + 0.175), SLOT_Y, 9.05);
+box(0.35, SLOT_H, 0.5, M.red,  (SLOT_W / 2 + 0.175), SLOT_Y, 9.05);
+// 腰線
+box(20.0, 0.8, 0.5, M.red, 0, 11.0, 8.85, scene, 0.15);
+
+// 投入口上方提示
+const slotHint = printPlane(7, 0.7, (g, w, h) => {
+  g.fillStyle = '#5b6571'; g.font = `700 ${h * 0.6}px "Noto Sans TC"`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText('▲ 正面朝上・一次一張', w / 2, h / 2);
+});
+slotHint.position.set(0, 16.0, 9.02); scene.add(slotHint);
+
+// 品牌
+const brand = printPlane(4.4, 1.8, (g, w, h) => {
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = '#1a1f26'; g.font = `900 ${h * 0.5}px "Noto Sans TC"`; g.fillText('對獎倉', w / 2, h * 0.38);
+  g.fillStyle = '#d62839'; g.font = `700 ${h * 0.16}px "JetBrains Mono"`; g.fillText('INVOICE KEEPER', w / 2, h * 0.8);
+});
+brand.position.set(0.6, 18.7, 9.02); scene.add(brand);
+
+// OLED
+const oledCanvas = $('#oledCanvas');
+const oledTex = canvasTex(oledCanvas);
+box(5.4, 3.0, 0.24, M.charS, -4.9, 18.7, 9.1, scene, 0.08);
+const oledScreen = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 2.3), new THREE.MeshBasicMaterial({ map: oledTex, toneMapped: false }));
+oledScreen.position.set(-4.9, 18.7, 9.235); scene.add(oledScreen);
+
+// 已取出按鈕
+const btnGroup = new THREE.Group(); btnGroup.position.set(5.2, 19.0, 9.0); scene.add(btnGroup);
+const btnRingMat = new THREE.MeshStandardMaterial({ color: '#ffffff', emissive: '#ff3b4c', emissiveIntensity: 0.25, roughness: 0.3 });
+const btnRing = new THREE.Mesh(new THREE.TorusGeometry(1.1, 0.13, 12, 40), btnRingMat); btnRing.position.z = 0.08; btnGroup.add(btnRing);
+const btnCap = cyl(0.85, 0.5, M.red, 0, 0, 0.25, 'z', btnGroup);
+const btnText = printPlane(3.2, 0.9, (g, w, h) => {
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = '#1a1f26'; g.font = `700 ${h * 0.42}px "Noto Sans TC"`; g.fillText('已取出', w / 2, h * 0.32);
+  g.fillStyle = '#5b6571'; g.font = `500 ${h * 0.28}px "Noto Sans TC"`; g.fillText('長按 3 秒歸零', w / 2, h * 0.78);
+});
+btnText.position.set(5.2, 17.2, 9.02); scene.add(btnText);
+
+/* ---------- 抽屜（收集盒） ---------- */
+function makeDrawer(x, title, sub) {
+  const g = new THREE.Group(); g.position.set(x, 0, 0); scene.add(g);
+  box(9.0, 0.4, 17.7, M.inner, 0, 1.0, -0.15, g);
+  box(0.12, 9.0, 17.6, M.acrylic, -4.44, 5.7, -0.15, g).castShadow = false;
+  box(0.12, 9.0, 17.6, M.acrylic,  4.44, 5.7, -0.15, g).castShadow = false;
+  box(8.9, 9.0, 0.12, M.acrylic, 0, 5.7, -8.95, g).castShadow = false;
+  box(9.0, 8.4, 0.3, M.acrylic, 0, 5.0, 8.85, g).castShadow = false;   // 前板透明
+  box(9.0, 1.4, 0.34, M.body(), 0, 9.9, 8.85, g, 0.1);                  // 前板標示條
+  box(3.2, 0.32, 0.5, M.charS, 0, 8.6, 9.1, g, 0.12);                   // 把手
+  const lab = printPlane(8.4, 1.2, (c, w, h) => {
+    c.textBaseline = 'middle';
+    c.fillStyle = '#1a1f26'; c.font = `900 ${h * 0.5}px "Noto Sans TC"`; c.textAlign = 'left'; c.fillText(title, w * 0.05, h * 0.52);
+    c.fillStyle = '#5b6571'; c.font = `700 ${h * 0.26}px "JetBrains Mono"`; c.textAlign = 'right'; c.fillText(sub, w * 0.95, h * 0.54);
+  });
+  lab.position.set(0, 9.9, 9.03); g.add(lab);
+  return g;
+}
+const drawerE = makeDrawer(-4.75, '電子發票', 'E-INVOICE');
+const drawerT = makeDrawer( 4.75, '傳統發票', 'PAPER');
+
+/* ---------- 內部機構 ---------- */
+const PAPER_Y = 14.85;
+// 送紙導板
+box(7.2, 0.2, 1.6, M.inner, 0, 14.7, 7.8);
+box(7.2, 0.2, 4.3, M.inner, 0, 14.7, 3.85);
+box(0.12, 0.5, 6.9, M.inner, -3.05, 15.05, 5.15);
+box(0.12, 0.5, 6.9, M.inner,  3.05, 15.05, 5.15);
+// 上方橫樑
+box(19.2, 0.4, 0.8, M.rail, 0, 20.6, 3.5);
+box(19.2, 0.4, 0.8, M.rail, 0, 20.6, -3.8);
+
+// 滾輪
+const rollers = [];
+function roller(z, y, dir) {
+  const grp = new THREE.Group(); grp.position.set(0, y, z); grp.rotation.z = Math.PI / 2; scene.add(grp);
+  const spin = new THREE.Group(); grp.add(spin);
+  const core = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 6.6, 28), M.rubber); core.castShadow = true; spin.add(core);
+  for (let i = 0; i < 4; i++) {
+    const rib = new THREE.Mesh(new THREE.BoxGeometry(0.1, 6.62, 0.1), M.metal);
+    const a = i * Math.PI / 2; rib.position.set(Math.cos(a) * 0.43, 0, Math.sin(a) * 0.43); spin.add(rib);
+  }
+  const axle = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 7.6, 12), M.metal); grp.add(axle);
+  rollers.push({ spin, dir });
+}
+roller(6.5, 15.36, -1); roller(6.5, 14.34, 1);
+roller(1.2, 15.36, -1); roller(1.2, 14.34, 1);
+// N20 馬達 + 皮帶
+cyl(0.5, 1.8, M.metal, -5.0, 15.36, 6.5, 'x');
+box(0.9, 1.1, 1.1, M.charS, -4.0, 15.36, 6.5);
+cyl(0.55, 0.25, M.charS, -3.55, 15.36, 1.2, 'x');
+box(0.22, 0.08, 5.3, M.rubber, -3.55, 15.91, 3.85);
+box(0.22, 0.08, 5.3, M.rubber, -3.55, 14.81, 3.85);
+
+// IR 感測器
+box(1.5, 0.5, 0.9, M.pcb, 0, 15.85, 7.7);
+const irLed = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 8), new THREE.MeshStandardMaterial({ color: '#333', emissive: '#22ff88', emissiveIntensity: 0 }));
+irLed.position.set(0.5, 16.15, 7.7); scene.add(irLed);
+cyl(0.15, 0.2, new THREE.MeshStandardMaterial({ color: '#1c2a55' }), -0.35, 15.55, 7.7, 'y');
+cyl(0.15, 0.2, M.white, 0.35, 15.55, 7.7, 'y');
+
+// 條碼掃描模組 GM65
+box(0.3, 2.4, 0.3, M.rail, 0, 19.3, 3.5);
+box(2.8, 1.3, 2.4, M.charS, 0, 17.9, 3.5, scene, 0.12);
+box(2.2, 0.06, 1.0, new THREE.MeshStandardMaterial({ color: '#5a0d14', roughness: 0.1 }), 0, 17.22, 3.5);
+const scanLedMat = new THREE.MeshStandardMaterial({ color: '#222', emissive: '#22dd77', emissiveIntensity: 0 });
+const scanLed = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 8), scanLedMat); scanLed.position.set(1.1, 18.0, 4.72); scene.add(scanLed);
+const beam = new THREE.Group(); beam.position.set(0, 0, 3.5); beam.visible = false; scene.add(beam);
+const beamMat = new THREE.MeshBasicMaterial({ color: '#ff2a3a', transparent: true, opacity: 0.32, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending });
+{
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute([0, 17.2, 0, -2.9, PAPER_Y + 0.06, 0, 2.9, PAPER_Y + 0.06, 0], 3));
+  beam.add(new THREE.Mesh(geo, beamMat));
+  beam.add(new THREE.Mesh(new THREE.BoxGeometry(5.8, 0.02, 0.07), new THREE.MeshBasicMaterial({ color: '#ff2a3a' })));
+  beam.children[1].position.y = PAPER_Y + 0.07;
+}
+
+// 伺服托盤
+const tray = new THREE.Group(); tray.position.set(0, 14.6, -3.8); scene.add(tray);
+box(7.0, 0.2, 9.0, M.inner, 0, 0.1, 0, tray);
+box(7.0, 0.5, 0.15, M.inner, 0, 0.35, -4.45, tray);
+box(1.2, 0.3, 0.3, M.white, 0, 0, -4.7, tray);
+box(2.3, 2.2, 0.9, M.blue, 0, 14.0, -8.9, scene, 0.1);  // SG90
+cyl(0.25, 0.4, M.white, 0, 14.6, -8.35, 'z');
+
+// ESP32（貼在左側板內側）
+box(0.16, 2.8, 5.4, M.pcb, -9.48, 17.4, -2.5);
+box(0.3, 1.6, 1.8, M.metal, -9.3, 17.6, -0.6);
+for (let i = 0; i < 2; i++) box(0.3, 0.2, 4.6, M.charS, -9.32, 16.15 + i * 2.5, -2.7);
+const espLed = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), new THREE.MeshStandardMaterial({ color: '#113', emissive: '#3aa0ff', emissiveIntensity: 1.2 }));
+espLed.position.set(-9.33, 17.0, -4.6); scene.add(espLed);
+
+// 線路
+wire([[-9.25, 17.8, -1.4], [-7, 19.9, 0.5], [-3, 20.0, 2.6], [-1.3, 18.3, 3.4]], '#e8b730');
+wire([[-9.25, 18.2, -0.8], [-8.5, 19.6, 4], [-6.5, 19.2, 8.0], [-4.9, 18.7, 8.6]], '#3a7bd5');
+wire([[-9.25, 16.4, -3.8], [-7.2, 13.4, -7.0], [-2.5, 13.6, -8.9], [-1.2, 14.0, -8.9]], '#e2752b');
+wire([[-9.25, 16.8, -1.0], [-8.0, 15.6, 3.0], [-6.8, 15.5, 6.0], [-5.9, 15.36, 6.5]], '#c7343f');
+wire([[-9.25, 17.1, -0.2], [-6.0, 17.3, 5.0], [-2.0, 16.4, 7.7], [-0.75, 15.9, 7.7]], '#2f9e63');
+
+/* ---------- L2：相機 + 筆電 ---------- */
+const l2 = new THREE.Group(); scene.add(l2);
+box(0.3, 0.9, 0.3, M.rail, 0, 20.0, -3.8, l2);
+box(2.6, 0.25, 2.6, M.pcbG, 0, 19.45, -3.8, l2);
+cyl(0.5, 0.8, M.charS, 0, 18.95, -3.8, 'y', l2);
+const camRingMat = new THREE.MeshStandardMaterial({ color: '#fff', emissive: '#ffffff', emissiveIntensity: 0.15 });
+const camRing = new THREE.Mesh(new THREE.TorusGeometry(0.85, 0.1, 8, 28), camRingMat);
+camRing.rotation.x = Math.PI / 2; camRing.position.set(0, 18.6, -3.8); l2.add(camRing);
+const flash = new THREE.PointLight(0xffffff, 0, 16, 2); flash.position.set(0, 18.2, -3.8); l2.add(flash);
+wire([[0, 19.6, -3.0], [3, 20.3, -6], [6, 20.0, -9.2], [6.2, 19.5, -9.6]], '#7f8a96', l2);
+wire([[6.2, 19.5, -9.9], [8.5, 10, -11.6], [14, 0.35, -10.5], [20, 0.35, -4.5], [23.2, 0.45, -1.8]], '#7f8a96', l2);
+cyl(0.4, 0.6, M.charS, 6.2, 19.5, -9.85, 'z', l2);
+
+const laptop = new THREE.Group(); laptop.position.set(29.5, 0, 2.5); laptop.rotation.y = -0.55; l2.add(laptop);
+box(13, 0.6, 9, M.lap, 0, 0.3, 0, laptop, 0.25);
+box(11.4, 0.04, 4.2, M.charS, 0, 0.62, -1.2, laptop);
+box(4.2, 0.04, 2.6, new THREE.MeshStandardMaterial({ color: '#aeb5bd', roughness: 0.4 }), 0, 0.62, 2.6, laptop);
+const hinge = new THREE.Group(); hinge.position.set(0, 0.6, -4.4); hinge.rotation.x = -0.28; laptop.add(hinge);
+box(13, 8.6, 0.35, M.lap, 0, 4.3, 0, hinge, 0.2);
+const lapCanvas = $('#lapCanvas');
+const lapTex = canvasTex(lapCanvas);
+const lapScreen = new THREE.Mesh(new THREE.PlaneGeometry(12.2, 7.6), new THREE.MeshBasicMaterial({ map: lapTex, toneMapped: false }));
+lapScreen.position.set(0, 4.4, 0.18); hinge.add(lapScreen);
+
+/* ---------- 標籤 ---------- */
+const labels = [];
+function addLabel(text, pos, { ext = false, lv2 = false, parent = scene } = {}) {
+  const el = document.createElement('div');
+  el.className = 'lbl';
+  el.innerHTML = (lv2 ? '<span class="lv">L2</span>' : '') + text;
+  const o = new CSS2DObject(el);
+  o.position.set(...pos);
+  parent.add(o);
+  labels.push({ o, ext, lv2 });
+}
+addLabel('投入口', [0, 13.6, 10.6], { ext: true });
+addLabel('OLED 0.96″', [-4.9, 20.8, 9.4], { ext: true });
+addLabel('已取出按鈕', [5.2, 20.8, 9.4], { ext: true });
+addLabel('電子發票盒', [-4.75, 6.5, 9.6], { ext: true });
+addLabel('傳統發票盒', [4.75, 6.5, 9.6], { ext: true });
+addLabel('紅外線感測 TCRT5000', [1.8, 16.9, 7.7]);
+addLabel('送紙滾輪＋N20 馬達', [-5.2, 16.7, 5.6]);
+addLabel('條碼／QR 掃描模組 GM65', [2.6, 18.6, 3.5]);
+addLabel('伺服托盤 SG90（左右傾）', [3.2, 15.6, -6.6]);
+addLabel('ESP32', [-9.2, 19.6, -2.5]);
+addLabel('相機＋補光環', [2.4, 19.2, -3.8], { lv2: true });
+addLabel('筆電：Python OCR', [29.5, 10.5, 1.5], { lv2: true, ext: true });
+
+/* ---------- 發票 ---------- */
+let seed = 11;
+const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+const LET = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+function invNo(suffix) {
+  let d = '';
+  for (let i = 0; i < 8; i++) d += Math.floor(rnd() * 10);
+  if (suffix) d = d.slice(0, 8 - suffix.length) + suffix;
+  else if (/(678|735)$/.test(d)) d = d.slice(0, 7) + '1';
+  return LET[Math.floor(rnd() * LET.length)] + LET[Math.floor(rnd() * LET.length)] + '-' + d;
+}
+function qr(g, x, y, s) {
+  const n = 21, m = s / n;
+  g.fillStyle = '#111';
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) if (Math.random() < 0.48) g.fillRect(x + i * m, y + j * m, m, m);
+  const finder = (fx, fy) => {
+    g.fillStyle = '#111'; g.fillRect(fx, fy, 7 * m, 7 * m);
+    g.fillStyle = '#fbfbf7'; g.fillRect(fx + m, fy + m, 5 * m, 5 * m);
+    g.fillStyle = '#111'; g.fillRect(fx + 2 * m, fy + 2 * m, 3 * m, 3 * m);
+  };
+  g.fillStyle = '#fbfbf7';
+  g.fillRect(x, y, 8 * m, 8 * m); g.fillRect(x + 13 * m, y, 8 * m, 8 * m); g.fillRect(x, y + 13 * m, 8 * m, 8 * m);
+  finder(x, y); finder(x + 14 * m, y); finder(x, y + 14 * m);
+}
+function drawInvoice(rec) {
+  const c = document.createElement('canvas'); c.width = 342; c.height = 540;
+  const g = c.getContext('2d');
+  const P = PERIODS[rec.period].label;
+  const mm = rec.period.slice(3);
+  g.textAlign = 'center';
+  if (rec.kind === 't') {
+    g.fillStyle = '#f5f1e8'; g.fillRect(0, 0, 342, 540);
+    g.strokeStyle = '#b5303a'; g.lineWidth = 4; g.strokeRect(12, 12, 318, 516);
+    g.fillStyle = '#b5303a';
+    g.font = '900 30px "Noto Sans TC"'; g.fillText('統一發票（收執聯）', 171, 64);
+    g.font = '700 26px "Noto Sans TC"'; g.fillText(P, 171, 106);
+    g.font = '700 40px "JetBrains Mono"'; g.fillText(rec.no, 171, 158);
+    g.fillRect(34, 182, 274, 2);
+    g.fillStyle = '#333'; g.font = '500 21px "Noto Sans TC"';
+    [['排骨便當', '95'], ['紅茶（大）', '25'], ['合計', '120']].forEach(([a, b], i) => {
+      g.textAlign = 'left'; g.fillText(a, 36, 222 + i * 34);
+      g.textAlign = 'right'; g.fillText(b, 306, 222 + i * 34);
+    });
+    g.textAlign = 'center'; g.font = '500 17px "Noto Sans TC"';
+    g.fillText('營業人統一編號 53212539', 171, 352);
+    g.fillText('清大小吃部', 171, 380);
+    g.strokeStyle = 'rgba(181,48,58,.7)'; g.lineWidth = 3;
+    g.beginPath(); g.arc(250, 455, 46, 0, Math.PI * 2); g.stroke();
+    g.fillStyle = 'rgba(181,48,58,.75)'; g.font = '700 15px "Noto Sans TC"'; g.fillText('發票專用章', 250, 460);
+  } else {
+    g.fillStyle = '#fbfbf7'; g.fillRect(0, 0, 342, 540);
+    g.fillStyle = '#111';
+    g.font = '700 22px "Noto Sans TC"'; g.fillText('清大小吃部', 171, 40);
+    g.font = '900 34px "Noto Sans TC"'; g.fillText('電子發票證明聯', 171, 88);
+    g.font = '900 38px "Noto Sans TC"'; g.fillText(P, 171, 138);
+    g.font = '700 40px "JetBrains Mono"'; g.fillText(rec.no, 171, 190);
+    g.textAlign = 'left'; g.font = '500 17px "JetBrains Mono"';
+    g.fillText(`2026-${mm}-14 19:32:05`, 30, 226);
+    g.fillText(`隨機碼 ${String(1000 + Math.floor(Math.random() * 8999))}   總計 185`, 30, 252);
+    g.fillText('賣方 53212539', 30, 278);
+    let x = 30;
+    while (x < 310) {
+      const w = Math.random() < 0.5 ? 2 : 4;
+      g.fillRect(x, 294, w, 50);
+      x += w + (Math.random() < 0.5 ? 2 : 4);
+    }
+    qr(g, 34, 362, 112); qr(g, 196, 362, 112);
+    g.textAlign = 'center'; g.font = '500 15px "Noto Sans TC"'; g.fillText('退貨請攜帶證明聯正本', 171, 512);
+  }
+  if (rec.crumpled) {
+    for (let i = 0; i < 10; i++) {
+      const gx = Math.random() * 342, gy = Math.random() * 540, r = 30 + Math.random() * 60;
+      const grd = g.createRadialGradient(gx, gy, 0, gx, gy, r);
+      grd.addColorStop(0, 'rgba(120,110,90,.32)'); grd.addColorStop(1, 'rgba(120,110,90,0)');
+      g.fillStyle = grd; g.fillRect(gx - r, gy - r, r * 2, r * 2);
+    }
+    g.strokeStyle = 'rgba(60,60,60,.35)'; g.lineWidth = 2;
+    for (let i = 0; i < 7; i++) { g.beginPath(); g.moveTo(Math.random() * 342, 0); g.lineTo(Math.random() * 342, 540); g.stroke(); }
+    g.fillStyle = 'rgba(245,242,232,.75)'; g.fillRect(70, 290, 200, 60); g.fillRect(40, 150, 260, 50);
+  }
+  return c;
+}
+const INV_T = 0.1;
+const invGeo = new THREE.BoxGeometry(5.7, INV_T, 9);
+const crumpleGeo = (() => {
+  const geo = new THREE.BoxGeometry(5.7, INV_T, 9, 8, 1, 12);
+  const p = geo.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), z = p.getZ(i);
+    p.setY(i, p.getY(i) + 0.22 * Math.sin(x * 1.4) * Math.cos(z * 0.9) + 0.08 * Math.sin(x * 3 + z * 2.2));
+  }
+  geo.computeVertexNormals();
+  return geo;
+})();
+function makeInvoice(rec) {
+  const side = new THREE.MeshStandardMaterial({ color: rec.kind === 't' ? '#ece6d8' : '#f3f3ef', roughness: 0.85 });
+  const top = new THREE.MeshStandardMaterial({ map: canvasTex(drawInvoice(rec)), roughness: 0.8 });
+  const mesh = new THREE.Mesh(rec.crumpled ? crumpleGeo : invGeo, [side, side, top, side, side, side]);
+  mesh.castShadow = true; mesh.receiveShadow = true;
+  rec.mesh = mesh; rec.side = side; rec.top = top;
+  return mesh;
+}
+const stackY = i => 1.2 + INV_T / 2 + i * (INV_T + 0.02);
+
+/* ---------- 狀態 ---------- */
+const state = { level: 'L1', view: 'cut', mode: 'pending', showLabels: true, drawn: false, busy: false };
+const bins = {
+  e: { drawer: drawerE, items: [], name: '電子盒' },
+  t: { drawer: drawerT, items: [], name: '傳統盒' }
+};
+const winners = [];
+const fromTop = rec => { const b = bins[rec.kind]; return b.items.length - b.items.indexOf(rec); };
+const hasNumber = rec => rec.kind === 'e' || (rec.ocr ?? state.level === 'L2');
+
+function placeInStack(rec, i) {
+  const m = rec.mesh;
+  m.position.set((rnd() - 0.5) * 0.3, stackY(i), -3.8 + (rnd() - 0.5) * 0.3);
+  m.rotation.set(0, (rnd() - 0.5) * 0.1, 0);
+}
+function seedData() {
+  for (const k of ['e', 't']) {
+    for (const r of bins[k].items) { bins[k].drawer.remove(r.mesh); r.top.map.dispose(); }
+    bins[k].items.length = 0;
+  }
+  winners.splice(0).forEach(r => r.tag && r.mesh.remove(r.tag));
+  PERIODS['09-10'].drawn = false;
+  state.drawn = false;
+  seed = 11;
+  const ePer = ['09-10', '09-10', '09-10', '09-10', '11-12', '11-12'];
+  ePer.forEach((p, i) => {
+    const rec = { kind: 'e', period: p, no: invNo(i === 2 ? '735' : null), ocr: true, drawWin: i === 2 };
+    makeInvoice(rec); bins.e.drawer.add(rec.mesh); placeInStack(rec, i); bins.e.items.push(rec);
+  });
+  ['09-10', '09-10', '11-12'].forEach((p, i) => {
+    const rec = { kind: 't', period: p, no: invNo(null), ocr: null };
+    makeInvoice(rec); bins.t.drawer.add(rec.mesh); placeInStack(rec, i); bins.t.items.push(rec);
+  });
+  $('#phone').hidden = true;
+  drawBtnState();
+}
+
+/* ---------- 螢幕 ---------- */
+const og = oledCanvas.getContext('2d');
+function oled(lines, tone = 'normal') {
+  const W = 512, H = 256;
+  og.fillStyle = '#04070a'; og.fillRect(0, 0, W, H);
+  og.fillStyle = '#7fb8cc'; og.font = '700 22px "JetBrains Mono"'; og.textAlign = 'left'; og.textBaseline = 'middle';
+  og.fillText('對獎倉', 16, 24);
+  og.textAlign = 'right';
+  og.fillText(state.level === 'L2' ? 'PC● WiFi●' : 'WiFi●', W - 16, 24);
+  og.fillStyle = '#1b3540'; og.fillRect(16, 44, W - 32, 2);
+  const col = { normal: '#c9f2ff', win: '#ff5f6d', wait: '#ffcf5c', ok: '#7dffb2', bad: '#ff8a5c' }[tone];
+  og.textAlign = 'left';
+  lines.forEach((t, i) => {
+    og.fillStyle = i === 0 ? col : '#c9f2ff';
+    og.font = i === 0 ? '900 44px "Noto Sans TC"' : '500 30px "Noto Sans TC"';
+    og.fillText(t, 18, i === 0 ? 92 : 92 + 30 + i * 42);
+  });
+  oledTex.needsUpdate = true;
+}
+function oledIdle() {
+  const n = bins.e.items.length, m = bins.t.items.length;
+  oled(['待命中', `電子 ${n} 張・傳統 ${m} 張`, state.drawn ? '下次開獎 1/25' : '下次開獎 11/25']);
+}
+const lg = lapCanvas.getContext('2d');
+function laptopScreen(lines, tone) {
+  const W = 640, H = 400;
+  lg.fillStyle = '#0e1318'; lg.fillRect(0, 0, W, H);
+  lg.fillStyle = '#1b232c'; lg.fillRect(0, 0, W, 44);
+  ['#ff5f57', '#febc2e', '#28c840'].forEach((c, i) => { lg.fillStyle = c; lg.beginPath(); lg.arc(24 + i * 22, 22, 7, 0, 7); lg.fill(); });
+  lg.fillStyle = '#9aa7b4'; lg.font = '500 20px "JetBrains Mono"'; lg.textBaseline = 'middle'; lg.fillText('ocr_server.py', 100, 23);
+  lg.font = '500 26px "JetBrains Mono"';
+  lines.forEach((t, i) => {
+    lg.fillStyle = i === 0 ? (tone === 'bad' ? '#ff8a5c' : '#7dffb2') : '#d5dde5';
+    lg.fillText(t, 26, 84 + i * 48);
+  });
+  lapTex.needsUpdate = true;
+}
+const lapIdle = () => laptopScreen(['$ python ocr_server.py', '已啟動，監聽 :8080', '等待 ESP32 傳來影像…']);
+
+/* ---------- 動畫系統 ---------- */
+const tweens = new Set();
+const easeIO = k => k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+const linear = k => k;
+function tween(dur, fn, ease = easeIO) {
+  return new Promise(res => tweens.add({ t: 0, dur: Math.max(0.001, dur * SPEED), fn, ease, res }));
+}
+const wait = s => tween(s, () => {});
+let rollerSpeed = 0;
+
+async function feed(inv, z0, z1, dur) {
+  rollerSpeed = z1 < z0 ? 8 : -8;
+  await tween(dur, k => { inv.position.z = lerp(z0, z1, k); }, linear);
+  rollerSpeed = 0;
+}
+async function scan(ok) {
+  beam.visible = true;
+  await tween(ok ? 1.1 : 1.7, k => {
+    beam.position.z = 3.5 + Math.sin(k * Math.PI * 4) * 0.9;
+    beamMat.opacity = ok ? 0.32 : 0.15 + 0.25 * Math.abs(Math.sin(k * 38));
+  }, linear);
+  beam.visible = false; beam.position.z = 3.5;
+  scanLedMat.emissive.set(ok ? '#22dd77' : '#ff3344');
+  scanLedMat.emissiveIntensity = 2;
+  setTimeout(() => { scanLedMat.emissiveIntensity = 0; }, 900 * SPEED);
+}
+async function cameraShot() {
+  laptopScreen(['收到影像 #0042', '執行 OCR…']);
+  await tween(0.5, k => { const v = Math.sin(k * Math.PI); flash.intensity = v * 90; camRingMat.emissiveIntensity = 0.15 + v * 3; }, linear);
+  flash.intensity = 0; camRingMat.emissiveIntensity = 0.15;
+  await wait(0.7);
+}
+async function tiltDrop(inv, kind) {
+  const s = kind === 'e' ? 1 : -1;
+  await tween(0.7, k => { tray.rotation.z = s * 0.6 * k; });
+  await tween(0.45, k => { inv.position.x = lerp(0, -s * 2.7, k * k); }, linear);
+  scene.attach(inv);
+  const trayBack = tween(0.6, k => { tray.rotation.z = s * 0.6 * (1 - k); });
+  const bin = bins[kind];
+  const p0 = inv.position.clone(), q0 = inv.quaternion.clone();
+  const local = new THREE.Vector3((Math.random() - 0.5) * 0.3, stackY(bin.items.length), -3.8 + (Math.random() - 0.5) * 0.3);
+  const p1 = local.clone().add(bin.drawer.position);
+  const q1 = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, (Math.random() - 0.5) * 0.1, 0));
+  await tween(0.85, k => {
+    inv.position.set(lerp(p0.x, p1.x, Math.min(1, k * 1.4)), lerp(p0.y, p1.y, k * k), lerp(p0.z, p1.z, k));
+    inv.quaternion.slerpQuaternions(q0, q1, Math.min(1, k * 1.25));
+  }, linear);
+  bin.drawer.attach(inv);
+  await trayBack;
+}
+
+/* ---------- 流程 ---------- */
+function stepsFor(kind, lv) {
+  const common = ['紅外線感測到發票，滾輪啟動', '送紙到掃描區'];
+  if (kind === 'e') return [...common, '條碼模組讀到 Code39：期別＋字軌號碼', 'ESP32 判定電子發票，比對開獎號碼', '托盤左傾 → 電子發票盒', 'OLED 顯示結果'];
+  if (kind === 't') return [...common, '讀不到條碼 → 判定為傳統發票',
+    lv === 'L2' ? '相機拍照，筆電 OCR 讀字軌號碼與期別' : 'L1 沒有 OCR，只記錄放在第幾張',
+    '托盤右傾 → 傳統發票盒', 'OLED 顯示結果'];
+  return [...common, '讀不到條碼', '相機拍照，OCR 也找不到字軌號碼', '滾輪反轉，把發票退回投入口', 'OLED 提示攤平後重投'];
+}
+function setSteps(list, name) {
+  $('#flowName').textContent = name;
+  $('#steps').innerHTML = list.map(s => `<li>${s}</li>`).join('');
+}
+function step(i) {
+  [...$('#steps').children].forEach((li, j) => { li.className = j < i ? 'done' : j === i ? 'now' : ''; });
+}
+function stepsDone() { [...$('#steps').children].forEach(li => { li.className = 'done'; }); }
+
+function resultFor(rec) {
+  const bn = bins[rec.kind].name, pos = fromTop(rec), P = PERIODS[rec.period];
+  if (!hasNumber(rec)) return [['已收進傳統盒', `${bn} 由上數第 ${pos} 張`, 'L1 不比對號碼'], 'ok'];
+  if (!P.drawn) return [['待開獎', `${P.label.slice(4)}・${P.drawDate} 開獎`, `${bn} 由上數第 ${pos} 張`], 'wait'];
+  if (rec.prize) return [['中獎！六獎 $200', `末三碼 ${rec.no.slice(-3)} 對中頭獎號碼`, `${bn} 由上數第 ${pos} 張`], 'win'];
+  return [['沒有中獎', `${P.label} 已開獎`, `${bn} 由上數第 ${pos} 張`], 'normal'];
+}
+
+async function insert(kind) {
+  if (state.busy) return;
+  if (kind === 'c' && state.level !== 'L2') return;
+  setBusy(true);
+  const lv = state.level;
+  const period = state.mode === 'pending' ? '11-12' : '07-08';
+  const isWin = state.mode === 'win';
+  const rec = { kind: kind === 't' ? 't' : 'e', period, no: invNo(isWin ? '678' : null), crumpled: kind === 'c', ocr: null, prize: isWin ? '六獎 $200' : null };
+  setSteps(stepsFor(kind, lv), { e: '電子發票', t: '傳統發票', c: '皺掉的電子發票' }[kind]);
+  const inv = makeInvoice(rec);
+  inv.position.set(0, PAPER_Y, 16);
+  scene.add(inv);
+  await tween(0.9, k => { inv.position.z = lerp(16, 12.6, k); });
+
+  step(0);
+  irLed.material.emissiveIntensity = 2.5;
+  oled(['偵測到發票', '滾輪啟動中…']);
+  await feed(inv, 12.6, 8.0, 0.8);
+  irLed.material.emissiveIntensity = 0;
+
+  step(1);
+  await feed(inv, 8.0, 2.6, 1.2);
+
+  step(2);
+  const barcodeOK = kind === 'e';
+  await scan(barcodeOK);
+  if (barcodeOK) oled(['讀到條碼', '電子發票', rec.no], 'ok');
+  else oled(['讀不到條碼', lv === 'L2' ? '改用相機拍照' : '判定：傳統發票'], 'wait');
+  await wait(0.6);
+
+  step(3);
+  await feed(inv, 2.6, -3.8, 1.3);
+  tray.attach(inv);
+  if (kind === 'e') {
+    oled(['比對開獎號碼', PERIODS[period].label, PERIODS[period].drawn ? '本期已開獎' : '本期尚未開獎']);
+    await wait(0.9);
+  } else if (lv === 'L2') {
+    await cameraShot();
+    if (kind === 'c') {
+      laptopScreen(['OCR 結果：失敗', '找不到「2 英文＋8 數字」', '→ 回傳 ESP32：退件'], 'bad');
+      oled(['OCR 失敗', '準備退件'], 'bad');
+    } else {
+      rec.ocr = true;
+      laptopScreen(['OCR 結果', `字軌號碼 ${rec.no}`, `期別 ${PERIODS[period].label}`, '→ 回傳 ESP32']);
+      oled(['OCR 完成', rec.no], 'ok');
+    }
+    await wait(1.0);
+  } else {
+    rec.ocr = false;
+    oled(['傳統發票', 'L1 只記錄位置']);
+    await wait(0.9);
+  }
+
+  if (kind === 'c') {
+    step(4);
+    scene.attach(inv);
+    await feed(inv, -3.8, 15.5, 2.4);
+    step(5);
+    oled(['讀取失敗', '請攤平後重投'], 'bad');
+    await wait(1.4);
+    await tween(0.5, k => { inv.position.y = PAPER_Y + k * 4; inv.position.z = 15.5 + k * 3; });
+    scene.remove(inv); rec.top.map.dispose();
+    stepsDone(); lapIdle();
+    setBusy(false);
+    return;
+  }
+
+  step(4);
+  await tiltDrop(inv, rec.kind);
+  bins[rec.kind].items.push(rec);
+
+  step(5);
+  const [lines, tone] = resultFor(rec);
+  oled(lines, tone);
+  if (tone === 'win') addWinner(rec);
+  refreshTags();
+  stepsDone();
+  if (lv === 'L2') setTimeout(lapIdle, 1500);
+  updateStatus();
+  setBusy(false);
+}
+
+function addWinner(rec) {
+  winners.push(rec);
+  const el = document.createElement('div');
+  el.className = 'wintag';
+  rec.tag = new CSS2DObject(el);
+  rec.tag.position.set(0, 0.3, 4.9);
+  rec.mesh.add(rec.tag);
+}
+function refreshTags() {
+  winners.forEach(r => { r.tag.element.textContent = `中獎・${bins[r.kind].name}由上數第 ${fromTop(r)} 張`; });
+  const has = winners.length > 0;
+  $('#takeSub').textContent = has ? `取出${bins[winners[0].kind].name}由上數第 ${fromTop(winners[0])} 張` : '沒有待取出的中獎發票';
+  drawBtnState();
+}
+
+async function simulateDraw() {
+  if (state.busy || state.drawn) return;
+  setBusy(true);
+  setSteps(['ESP32 透過 WiFi 下載 115年09-10月開獎號碼', '比對收集盒裡所有 09-10 月的發票', 'OLED 顯示＋LINE 推播中獎位置'], '開獎日');
+  step(0);
+  oled(['下載開獎號碼', '115年09-10月', 'WiFi 連線中…']);
+  await wait(1.3);
+  step(1);
+  PERIODS['09-10'].drawn = true; state.drawn = true;
+  let unchecked = 0, checked = 0;
+  const found = [];
+  for (const k of ['e', 't']) for (const r of bins[k].items) {
+    if (r.period !== '09-10') continue;
+    if (!hasNumber(r)) { unchecked++; continue; }
+    checked++;
+    if (r.drawWin) { r.prize = '六獎 $200'; found.push(r); }
+  }
+  oled(['比對中…', `共 ${checked} 張有號碼`]);
+  await wait(1.0);
+  step(2);
+  found.forEach(addWinner);
+  refreshTags();
+  if (found.length) {
+    const r = found[0];
+    oled(['中獎 1 張！', `六獎 $200・末三碼 ${r.no.slice(-3)}`, `${bins[r.kind].name} 由上數第 ${fromTop(r)} 張`], 'win');
+  } else oled(['本期沒有中獎', `已比對 ${checked} 張`]);
+  let msg = found.length
+    ? `115年09-10月開獎：中獎 1 張！<b>${bins[found[0].kind].name}由上數第 ${fromTop(found[0])} 張</b>，六獎 200 元。領獎期間 12/6 至次年 3/5。`
+    : '115年09-10月開獎：本期沒有中獎。';
+  if (unchecked) msg += `<br>傳統盒有 ${unchecked} 張沒有號碼紀錄（L1 無 OCR），請自己對獎。`;
+  else msg += `<br>傳統盒 09-10 月的發票已經 OCR 比對過，沒有中獎。`;
+  $('#phoneMsg').innerHTML = msg;
+  $('#phone').hidden = false;
+  stepsDone();
+  updateStatus();
+  setBusy(false);
+}
+
+async function takeOut() {
+  if (state.busy || !winners.length) return;
+  setBusy(true);
+  const rec = winners.shift();
+  const bin = bins[rec.kind];
+  setSteps(['使用者按下「已取出」', '抽屜拉出，取走中獎發票', '上面的發票往下補位，系統更新每張的位置'], '取出中獎發票');
+  step(0);
+  btnRingMat.emissiveIntensity = 3;
+  await tween(0.25, k => { btnCap.position.z = 0.25 - Math.sin(k * Math.PI) * 0.2; });
+  btnRingMat.emissiveIntensity = 0.25;
+  step(1);
+  await tween(1.0, k => { bin.drawer.position.z = 7 * k; });
+  const idx = bin.items.indexOf(rec);
+  const m = rec.mesh, y0 = m.position.y, z0 = m.position.z;
+  await tween(0.8, k => { m.position.y = y0 + 10 * k; m.position.z = z0 + 5 * k; });
+  m.remove(rec.tag); rec.tag = null;
+  bin.drawer.remove(m); rec.top.map.dispose();
+  bin.items.splice(idx, 1);
+  step(2);
+  const above = bin.items.slice(idx);
+  await tween(0.4, k => above.forEach((r, j) => { r.mesh.position.y = lerp(stackY(idx + j + 1), stackY(idx + j), k); }));
+  await tween(1.0, k => { bin.drawer.position.z = 7 * (1 - k); });
+  oled(['已取出', `${bin.name}剩 ${bin.items.length} 張`, '記得在期限內領獎'], 'ok');
+  if (!winners.length) $('#phone').hidden = true;
+  stepsDone();
+  refreshTags();
+  updateStatus();
+  setBusy(false);
+}
+
+/* ---------- 介面 ---------- */
+const BOM = [
+  ['L1', 'ESP32 DevKit', '主控、WiFi 下載開獎號碼、LINE Messaging API 推播'],
+  ['L1', 'GM65 條碼／QR 掃描模組', 'UART 輸出字串，讀電子發票的 Code39 條碼'],
+  ['L1', 'TCRT5000 紅外線反射感測', '偵測發票插入，啟動滾輪'],
+  ['L1', 'N20 減速馬達＋L9110S 驅動', '帶動兩組送紙滾輪（皮帶連動），可反轉退件'],
+  ['L1', 'SG90 伺服馬達', '托盤左傾進電子盒、右傾進傳統盒'],
+  ['L1', '0.96″ OLED SSD1306（I²C）', '顯示結果與中獎位置'],
+  ['L1', '按鈕＋LED 環、5V 2A 電源', '「已取出」與長按歸零'],
+  ['L2', 'USB 攝影機＋補光 LED 環', '在托盤上方拍傳統發票'],
+  ['L2', '筆電（Python＋OCR）', '讀字軌號碼與期別，透過 WiFi HTTP 回傳 ESP32']
+];
+function renderBom() {
+  const items = BOM.filter(b => state.level === 'L2' || b[0] === 'L1');
+  $('#bom').innerHTML = items.map(([lv, n, d]) => `<li class="${lv === 'L2' ? 'l2' : ''}"><span>${lv}</span><div>${n}<small>${d}</small></div></li>`).join('');
+  $('#bomCount').textContent = `${items.length} 項`;
+}
+function updateStatus() {
+  for (const k of ['e', 't']) {
+    const items = bins[k].items;
+    $('#n' + k.toUpperCase()).innerHTML = `${items.length}<small>張</small>`;
+    const pending = items.filter(r => hasNumber(r) && !PERIODS[r.period].drawn).length;
+    const noNum = items.filter(r => !hasNumber(r)).length;
+    const win = items.filter(r => winners.includes(r)).length;
+    let h = '';
+    if (win) h += `<span class="pill win">中獎待取出 ${win}</span>`;
+    if (pending) h += `<span class="pill wait">待開獎 ${pending}</span>`;
+    if (noNum) h += `<span class="pill grey">無號碼紀錄 ${noNum}</span>`;
+    if (!h) h = '<span class="pill">全部已比對</span>';
+    $('#p' + k.toUpperCase()).innerHTML = h;
+  }
+}
+function updateLabels() {
+  labels.forEach(({ o, ext, lv2 }) => {
+    o.visible = state.showLabels && (state.view !== 'outside' || ext) && (!lv2 || state.level === 'L2');
+  });
+}
+function setView(v) {
+  state.view = v;
+  shell.forEach(p => {
+    p.visible = !(v === 'cut' && p.userData.cut);
+    const x = v === 'xray';
+    p.material.transparent = x;
+    p.material.opacity = x ? 0.14 : 1;
+    p.material.depthWrite = !x;
+    p.castShadow = !x;
+    p.material.needsUpdate = true;
+  });
+  [['vOutside', 'outside'], ['vCut', 'cut'], ['vXray', 'xray']].forEach(([id, val]) => $('#' + id).setAttribute('aria-pressed', v === val));
+  updateLabels();
+}
+function setLevel(lv) {
+  if (state.busy) return;
+  state.level = lv;
+  l2.visible = lv === 'L2';
+  $('#lapWrap').hidden = lv !== 'L2';
+  $('#lvL1').setAttribute('aria-pressed', lv === 'L1');
+  $('#lvL2').setAttribute('aria-pressed', lv === 'L2');
+  const note = $('#lvNote');
+  if (lv === 'L1') {
+    note.className = 'note warn';
+    note.textContent = 'L1 讀不到條碼就一律當傳統發票，傳統發票只記錄位置、不比對號碼。皺掉的電子發票也會被分進傳統盒，不會退件。';
+  } else {
+    note.className = 'note';
+    note.textContent = '筆電接上後，傳統發票會拍照做 OCR，跟電子發票一樣能自動兌獎；條碼和 OCR 都失敗時退件請使用者重投。';
+  }
+  $('#insC').disabled = lv !== 'L2' || state.busy;
+  $('#insCsub').textContent = lv === 'L2' ? '條碼和 OCR 都讀不到，滾輪反轉退件' : 'L1 無法判斷讀取失敗，切到 L2 試試';
+  renderBom(); updateLabels(); updateStatus(); refreshTags();
+  oledIdle();
+  if (lv === 'L2') lapIdle();
+}
+function setMode(m) {
+  state.mode = m;
+  [['mPending', 'pending'], ['mLose', 'lose'], ['mWin', 'win']].forEach(([id, val]) => $('#' + id).setAttribute('aria-pressed', m === val));
+  $('#periodHint').textContent = m === 'pending' ? '115年11-12月，1/25 開獎' : '115年07-08月，9/25 已開獎';
+}
+function drawBtnState() {
+  $('#drawBtn').disabled = state.busy || state.drawn;
+  $('#takeBtn').disabled = state.busy || !winners.length;
+}
+function setBusy(b) {
+  state.busy = b;
+  ['insE', 'insT', 'lvL1', 'lvL2', 'resetBtn'].forEach(id => { $('#' + id).disabled = b; });
+  $('#insC').disabled = b || state.level !== 'L2';
+  drawBtnState();
+}
+
+$('#lvL1').onclick = () => setLevel('L1');
+$('#lvL2').onclick = () => setLevel('L2');
+$('#vOutside').onclick = () => setView('outside');
+$('#vCut').onclick = () => setView('cut');
+$('#vXray').onclick = () => setView('xray');
+$('#showLabels').onchange = e => { state.showLabels = e.target.checked; updateLabels(); };
+$('#mPending').onclick = () => setMode('pending');
+$('#mLose').onclick = () => setMode('lose');
+$('#mWin').onclick = () => setMode('win');
+$('#insE').onclick = () => insert('e');
+$('#insT').onclick = () => insert('t');
+$('#insC').onclick = () => insert('c');
+$('#drawBtn').onclick = simulateDraw;
+$('#takeBtn').onclick = takeOut;
+$('#resetBtn').onclick = () => {
+  if (state.busy) return;
+  seedData(); setSteps(stepsFor('e', state.level), '電子發票（範例）'); updateStatus(); refreshTags(); oledIdle();
+};
+
+/* ---------- 啟動 ---------- */
+seedData();
+setMode('pending');
+setLevel('L1');
+setView('cut');
+setSteps(stepsFor('e', 'L1'), '電子發票（範例）');
+oledIdle();
+lapIdle();
+
+function resize() {
+  const r = stage.getBoundingClientRect();
+  const w = Math.max(1, r.width), h = Math.max(1, r.height);
+  renderer.setSize(w, h);
+  labelRenderer.setSize(w, h);
+  camera.aspect = w / h;
+  camera.fov = w / h < 1 ? Math.min(58, 34 / (w / h) * 0.85) : 34;
+  camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(stage);
+resize();
+
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => {
+  const dt = Math.min(clock.getDelta(), 0.05);
+  const t = clock.elapsedTime;
+  for (const tw of tweens) {
+    tw.t += dt;
+    const k = Math.min(tw.t / tw.dur, 1);
+    tw.fn(tw.ease(k));
+    if (k >= 1) { tweens.delete(tw); tw.res(); }
+  }
+  if (rollerSpeed) rollers.forEach(r => { r.spin.rotation.y += r.dir * rollerSpeed * dt; });
+  const pulse = 0.5 + 0.5 * Math.sin(t * 6);
+  winners.forEach(r => { r.side.emissive.setRGB(0.9, 0.08, 0.15); r.side.emissiveIntensity = 0.3 + pulse * 0.9; });
+  btnRingMat.emissiveIntensity = winners.length && !state.busy ? 0.4 + pulse * 1.6 : btnRingMat.emissiveIntensity;
+  espLed.material.emissiveIntensity = 0.6 + 0.6 * Math.sin(t * 2);
+  controls.update();
+  renderer.render(scene, camera);
+  labelRenderer.render(scene, camera);
+});
+</script>
+</body>
+</html>
